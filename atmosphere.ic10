@@ -1,0 +1,70 @@
+## Mars climate controll
+define targetO2 0.70
+define targetN2 0.20
+define targetCO2 0.10
+define targetPressure 60
+
+alias gasSensor d0 # GasSensor in target room
+alias o2Pump d1
+alias n2Pump d2
+alias co2Pump d3
+alias roomVent d4
+
+alias o2Ratio r1
+alias n2Ratio r2
+alias co2Ratio r3
+alias otherRatio r4
+alias ventOn r5
+alias o2On r6
+alias n2On r7
+alias co2On r8
+alias minPressure r9
+alias currentPressure r10
+alias increasePressure r11
+alias maxPressure r12
+alias lowerPressure r13
+alias cleanGas r14
+
+define volumePumpType -321403609
+alias maxPumpSetting r0
+
+sub minPressure targetPressure 10
+add maxPressure targetPressure 10
+lb maxPumpSetting volumePumpType Maximum 3
+
+s roomVent PressureExternal minPressure
+
+start:
+yield
+l o2Ratio gasSensor RatioOxygen
+l n2Ratio gasSensor RatioNitrogen
+l co2Ratio gasSensor RatioCarbonDioxide
+l currentPressure gasSensor Pressure
+
+move otherRatio 1
+sub otherRatio otherRatio o2Ratio
+sub otherRatio otherRatio n2Ratio
+sub otherRatio otherRatio co2Ratio
+
+sgt cleanGas otherRatio 0.05
+sgt lowerPressure currentPressure maxPressure
+max ventOn cleanGas lowerPressure
+s roomVent Mode 1
+s roomVent On ventOn
+
+slt o2On o2Ratio targetO2
+s o2Pump Setting maxPumpSetting
+s o2Pump On o2On
+
+slt n2On n2Ratio targetN2
+s n2Pump Setting maxPumpSetting
+s n2Pump On n2On
+
+slt co2On co2Ratio targetCO2
+s co2Pump Setting maxPumpSetting
+s co2Pump On co2On
+
+slt increasePressure currentPressure targetPressure
+s o2Pump On increasePressure
+
+j start
