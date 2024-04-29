@@ -3,7 +3,7 @@ define Pump HASH("StructureVolumePump")
 define IC HASH("StructureCircuitHousing")
 define Dial HASH("StructureLogicDial")
 define Analyzer HASH("StructurePipeAnalysizer")
-define led HASH("StructureConsoleLED1x3") # LED Display (Large)
+define led HASH("StructureConsoleLED5") # LED Display (Large)
 define Light HASH("StructureDiode")
 define Lever HASH("StructureLogicSwitch")
 alias temp r7
