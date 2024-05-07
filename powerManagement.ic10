@@ -1,0 +1,30 @@
+define largeBat HASH("StructureBatteryLarge")
+define smallBat HASH("StructureBattery")
+define generator HASH("StructureSolidFuelGenerator")
+
+define emergencyPowerOn 5
+define emergencyPowerOff 10
+
+alias currCharge r2
+alias maxCharge r3
+alias percentCharge r4
+
+loop:
+yield
+lb r0 smallBat Charge 1
+lb r1 largeBat Charge 1
+add currCharge r0 r1
+lb r0 largeBat Maximum 1
+lb r1 smallBat Maximum 1
+add maxCharge r0 r1
+
+# (currCharge / maxCharge) * 100
+div r0 currCharge maxCharge
+mul percentCharge r0 100
+
+brgt percentCharge emergencyPowerOn 2
+sb generator On 1
+brlt percentCharge emergencyPowerOff 2
+sb generator On 1
+
+j loop

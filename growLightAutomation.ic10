@@ -13,7 +13,7 @@ alias lightOn r0
 alias daySensor d0
 
 
-define growLights -1758710260
+define growLights -1758710260 # StructureGrowLight
 
 div pTime lightPeriod dayLength
 
