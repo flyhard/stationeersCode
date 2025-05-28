@@ -1,0 +1,45 @@
+# Setup devices
+alias display d0
+alias sensor d1
+
+alias pressure r1
+# Constants as aliases (hardcoded values)
+define targetMin 30   # Minimum CO2 %
+define targetMax 40   # Maximum CO2 %
+
+s display Mode 0
+s display On 1
+
+loop:
+	# Read CO2 ratio (0.01.0) and scale to percentage
+	l r0 sensor RatioCarbonDioxide  # r0 = ratio (0.01.0)
+	#mul r0 r0 100                     # convert to percent (0100)
+	
+	l pressure sensor Pressure   # Read pressure (0100)
+	mul r0 r0 pressure
+	# write to housing
+	s display Setting r0
+	
+	# Compare to min
+	blt r0 targetMin addGas
+	
+	# Compare to max
+	bgt r0 targetMax removeGas
+	
+	# In range, turn valve off
+	#s d0 On 0
+	j yield
+	
+	# Add CO2
+	addGas:
+	s db Mode 1
+	j yield
+	
+	# Remove CO2
+	removeGas:
+	s db Mode 0
+	j yield
+	
+	yield:
+	yield
+j loop
