@@ -5,11 +5,12 @@
 # and resets panels to morning position at night.
 #
 # CONFIGURATION:
-# - solarPowerPort: Direction where power port points (0-360°)
-# - daySensorPort: Direction where daylight sensor points (0-360°)
+# - solarPowerPort: Direction where power port of solar panels points (0-360°)
+#   Note: Panel facing direction is 90° clockwise from power port
+# - daySensorPort: Always set to 180 (sensor power port is at 180°/-180°)
 #
-# The script uses these to calculate the correct offset
-# for aligning solar panels with the sun.
+# IMPORTANT: Daylight sensor returns horizontal values in range -180 to 180
+# The script calculates the correct offset for aligning solar panels with the sun.
 # ============================================
 
 alias DaySensor d0
@@ -25,7 +26,9 @@ define sensor HASH("StructureDaylightSensor")
 # Stack setup - push all solar panel types to process
 alias stackSize r10
 move sp 0
+push HASH("StructureSolarPanel")
 push HASH("StructureSolarPanelDual")
+push HASH("StructureSolarPanelReinforced")
 push HASH("StructureSolarPanelDualReinforced")
 move stackSize sp
 
@@ -44,10 +47,11 @@ alias hPos r8                   # Target horizontal position for panels
 alias vPos r9                   # Target vertical position for panels
 
 # Calculate the angular correction needed between sensor and panel orientation
-alias correction r6 
-sub correction solarPowerPort daySensorPort 
-brge correction 0 2             # If correction >= 0, skip next line
-add correction 360 correction   # Normalize negative angles to 0-360 range 
+# Formula: correction = (panelFacing - sensorPowerPort)
+#         = (solarPowerPort + 90) - daySensorPort
+alias correction r6
+add correction solarPowerPort 90    # Convert power port to panel facing direction
+sub correction daySensorPort correction  # Subtract sensor power port reference (180°) 
 
 
 # ============================================
@@ -80,7 +84,8 @@ j adjustLoop                    # Jump to apply settings
 # ============================================
 adjustPanel:
 move sp stackSize               # Reset stack pointer to beginning
-sub hPos horiz correction       # Calculate panel horizontal with correction offset
+add hPos horiz correction       # Calculate panel horizontal: sensor reading + correction
+
 move vPos vert                  # Set vertical to current sun position
 j adjustLoop                    # Jump to apply settings
 
