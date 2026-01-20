@@ -1,0 +1,101 @@
+# ============================================
+# SOLAR TRACKING SCRIPT
+# ============================================
+# This script automatically tracks the sun during the day
+# and resets panels to morning position at night.
+#
+# CONFIGURATION:
+# - solarPowerPort: Direction where power port points (0-360°)
+# - daySensorPort: Direction where daylight sensor points (0-360°)
+#
+# The script uses these to calculate the correct offset
+# for aligning solar panels with the sun.
+# ============================================
+
+alias DaySensor d0
+
+# Configuration: Set the port directions (in degrees)
+define solarPowerPort 0         # Direction where solar panel power port points
+define daySensorPort 180        # Direction where daylight sensor points
+
+define sensor HASH("StructureDaylightSensor")
+
+### Don't modify below here ###
+
+# Stack setup - push all solar panel types to process
+alias stackSize r10
+move sp 0
+push HASH("StructureSolarPanelDual")
+push HASH("StructureSolarPanelDualReinforced")
+move stackSize sp
+
+# Register aliases for sun position tracking
+alias horiz r0                  # Current horizontal angle from sensor
+alias minHoriz r3               # Minimum horizontal angle (for morning reset)
+move minHoriz 360 
+alias vert r1                   # Current vertical angle from sensor
+
+# Working variables
+alias stackPos r2               # Stack position (unused but reserved)
+alias day r4                    # Day flag (unused but reserved)
+alias mode r5                   # Operating mode: 0=day (tracking), 1=night (reset)
+alias currPanelType r7          # Current panel type hash from stack
+alias hPos r8                   # Target horizontal position for panels
+alias vPos r9                   # Target vertical position for panels
+
+# Calculate the angular correction needed between sensor and panel orientation
+alias correction r6 
+sub correction solarPowerPort daySensorPort 
+brge correction 0 2             # If correction >= 0, skip next line
+add correction 360 correction   # Normalize negative angles to 0-360 range 
+
+
+# ============================================
+# MAIN LOOP
+# ============================================
+main:
+# Read current sun position from daylight sensor
+l horiz DaySensor Horizontal 
+min minHoriz minHoriz horiz     # Track minimum horizontal angle (for morning position)
+l vert DaySensor Vertical 
+
+# Determine mode: Night if sun is below horizon (vertical < 90°)
+slt mode vert 90                # mode = 1 if vert < 90 (night), else 0 (day)
+
+# Branch based on mode
+beq mode 1 adjustPanel          # If night mode (1), go to night reset
+                                # Otherwise continue to day tracking
+
+# ============================================
+# DAY MODE - Reset to morning position
+# ============================================
+move sp stackSize               # Reset stack pointer to beginning
+move hPos minHoriz              # Set horizontal to minimum (morning position)
+move vPos 90                    # Set vertical to horizon (90°)
+j adjustLoop                    # Jump to apply settings
+
+
+# ============================================
+# NIGHT MODE - Active sun tracking
+# ============================================
+adjustPanel:
+move sp stackSize               # Reset stack pointer to beginning
+sub hPos horiz correction       # Calculate panel horizontal with correction offset
+move vPos vert                  # Set vertical to current sun position
+j adjustLoop                    # Jump to apply settings
+
+
+# ============================================
+# BATCH ADJUSTMENT LOOP
+# ============================================
+# Process all panel types from the stack and set their orientation
+adjustLoop:
+pop currPanelType               # Get next panel type hash from stack
+sb currPanelType Horizontal hPos  # Set horizontal angle for all panels of this type
+sb currPanelType Vertical vPos    # Set vertical angle for all panels of this type
+
+bgt sp 0 adjustLoop             # Continue if more panel types on stack
+
+# Wait for next tick and restart
+yield
+j main 
