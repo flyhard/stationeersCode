@@ -31,8 +31,7 @@ main:
 	l horiz DaySensor Horizontal
 	l vert DaySensor Vertical
 	slt mode vert 90
-	move isDay 1
-	sub isDay isDay mode
+	move isDay mode
 	beq prevDay 0 checkSunrise
 	j afterSunrise
 	checkSunrise:
@@ -75,8 +74,7 @@ main:
 	j normalizeHPos
 	
 	setVertical:
-	sub vert 90 vert
-	move vPos vert
+	sub vPos 90 vert
 	j adjustLoop
 	adjustLoop:
 	pop currPanelType
