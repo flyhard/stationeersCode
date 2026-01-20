@@ -1,0 +1,65 @@
+alias mixer d0
+alias o2Sens d1
+alias h2Sens d2
+alias fuelSens d3
+
+define maxPressure 20000
+define maxFuelTempO2 475
+define maxFuelTempNO2 298
+alias fuelTemp r0
+alias fuelPres r1
+alias fuelNO2Ratio r2
+alias tempO2 r3
+alias tempH2 r4
+alias buf r5
+alias mixerSetting r6
+
+s o2Sens On 1
+s h2Sens On 1
+s fuelSens On 1
+
+loop:
+yield
+s db Setting 0
+l fuelTemp fuelSens Temperature
+l fuelPres fuelSens Pressure
+l fuelNO2Ratio fuelSens RatioNitrousOxide
+l tempO2 o2Sens Temperature
+l tempH2 h2Sens Temperature
+
+bgtal fuelNO2Ratio 0 handleNO2Mix
+jal handleO2Mix
+jal handleFuelPressure
+
+jal setMixer
+
+j loop
+
+safetyOff:
+s db Setting 123
+s mixer On 0
+j loop
+
+handleNO2Mix:
+bgt fuelTemp maxFuelTempNO2 safetyOff
+j ra
+
+handleO2Mix:
+bgt fuelTemp maxFuelTempO2 safetyOff
+bgt tempO2 maxFuelTempO2 safetyOff
+j ra
+
+handleFuelPressure:
+bgt fuelPres maxPressure safetyOff
+j ra
+
+setMixer:
+# 100 - (100 / (1 + Temp.oxygen/(2*Temp.volatiles)))
+mul buf 2 tempH2
+div buf tempO2 buf
+add buf 1 buf
+div buf 100 buf
+sub mixerSetting 100 buf
+s mixer Setting mixerSetting
+s mixer On 1
+j ra

@@ -1,0 +1,27 @@
+define dayLength 20
+define lightPeriod 10
+define maxAngle 180
+define minAngle 0
+
+
+alias currentAngle r2
+
+alias percent r5
+alias pTime r6
+alias lightOn r0
+
+alias daySensor d0
+
+
+define growLights -1758710260 # StructureGrowLight
+
+div pTime lightPeriod dayLength
+
+loop:
+l currentAngle daySensor Vertical
+
+div percent currentAngle 180
+sgt lightOn pTime percent
+sb growLights On lightOn
+yield
+j loop

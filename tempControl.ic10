@@ -1,0 +1,26 @@
+# Temperature
+# gasSensor inside and Wall heater/cooler needed
+define maxTemp 26
+define idealTemp 24
+define minTemp 22
+
+
+alias tempSensor d0
+alias wallCooler d1
+alias wallHeater d2
+
+alias currentTemp r0
+
+start:
+l currentTemp tempSensor Temperature
+s db Setting currentTemp # debugging output
+brgt maxTemp currentTemp 2 # maxTemp > current -> skip next line
+s wallCooler On 1
+brlt idealTemp currentTemp 2 # ideal < current -> skip next line
+s wallCooler On 0
+brgt idealTemp currentTemp 2 # ideal > current -> skip next line
+s wallHeater On 0
+brlt minTemp currentTemp 2
+s wallHeater On 1
+yield
+j start
