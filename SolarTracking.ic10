@@ -34,61 +34,109 @@ move stackSize sp
 
 # Register aliases for sun position tracking
 alias horiz r0                  # Current horizontal angle from sensor
-alias minHoriz r3               # Minimum horizontal angle (for morning reset)
-move minHoriz 360 
+alias morningHoriz r3           # Captured sunrise horizontal angle (for night reset)
+move morningHoriz 0             # Initialize sunrise angle storage
 alias vert r1                   # Current vertical angle from sensor
 
 # Working variables
 alias stackPos r2               # Stack position (unused but reserved)
-alias day r4                    # Day flag (unused but reserved)
-alias mode r5                   # Operating mode: 0=day (tracking), 1=night (reset)
+alias isDay r4                  # Flag: 1=daylight detected, 0=night
+alias mode r5                   # Operating mode: 1=night (sun below horizon), 0=day
 alias currPanelType r7          # Current panel type hash from stack
 alias hPos r8                   # Target horizontal position for panels
 alias vPos r9                   # Target vertical position for panels
+alias prevDay r11               # Previous isDay value to detect sunrise
 
 # Calculate the angular correction needed between sensor and panel orientation
-# Formula: correction = (panelFacing - sensorPowerPort)
-#         = (solarPowerPort + 90) - daySensorPort
+# Formula: correction = (sensorPowerPort - panelFacing )
+#         = daySensorPort - (solarPowerPort + 90)
 alias correction r6
-add correction solarPowerPort 90    # Convert power port to panel facing direction
-sub correction daySensorPort correction  # Subtract sensor power port reference (180°) 
+add correction solarPowerPort 90        # Convert power port to panel facing direction
+sub correction daySensorPort correction   # Subtract sensor power port reference (180°) 
 
 
 # ============================================
 # MAIN LOOP
 # ============================================
+move prevDay 0                  # Initialize sunrise detection state
 main:
 # Read current sun position from daylight sensor
 l horiz DaySensor Horizontal 
-min minHoriz minHoriz horiz     # Track minimum horizontal angle (for morning position)
 l vert DaySensor Vertical 
 
-# Determine mode: Night if sun is below horizon (vertical < 90°)
-slt mode vert 90                # mode = 1 if vert < 90 (night), else 0 (day)
+# Determine mode: mode=1 when sun is below horizon (vertical < 90°)
+slt mode vert 90
 
-# Branch based on mode
-beq mode 1 adjustPanel          # If night mode (1), go to night reset
-                                # Otherwise continue to day tracking
+# Derive isDay flag (1 when sun is above or on horizon)
+move isDay 1
+sub isDay isDay mode             # isDay = 1 - mode
+
+# Detect sunrise: capture first daytime horizontal angle after night
+beq prevDay 0 checkSunrise
+j afterSunrise
+
+checkSunrise:
+beq isDay 1 captureSunrise
+j afterSunrise
+
+captureSunrise:
+add morningHoriz horiz correction   # Store corrected morning angle
+
+# Normalize morningHoriz to 0-360 range
+normalizeMorning:
+blt morningHoriz 0 morningAdd
+bge morningHoriz 360 morningSub
+j afterSunrise
+
+morningAdd:
+add morningHoriz morningHoriz 360
+j normalizeMorning
+
+morningSub:
+sub morningHoriz morningHoriz 360
+j normalizeMorning
+
+afterSunrise:
+move prevDay isDay
 
 # ============================================
-# DAY MODE - Reset to morning position
+# DAY MODE - Active sun tracking
+# ============================================
+beq isDay 1 adjustPanel         # Track sun when daylight
+
+# ============================================
+# NIGHT MODE - Reset to captured morning position
 # ============================================
 move sp stackSize               # Reset stack pointer to beginning
-move hPos minHoriz              # Set horizontal to minimum (morning position)
-move vPos 90                    # Set vertical to horizon (90°)
-j adjustLoop                    # Jump to apply settings
+move hPos morningHoriz          # Reset to stored sunrise horizontal angle
+move vPos 90                    # Park vertical at horizon
+j adjustLoop                    # Apply settings and sleep
 
 
 # ============================================
-# NIGHT MODE - Active sun tracking
+# DAY MODE - Active sun tracking
 # ============================================
 adjustPanel:
 move sp stackSize               # Reset stack pointer to beginning
 add hPos horiz correction       # Calculate panel horizontal: sensor reading + correction
 
+# Normalize hPos to 0-360 range
+normalizeHPos:
+blt hPos 0 hPosAdd
+bge hPos 360 hPosSub
+j setVertical
+
+hPosAdd:
+add hPos hPos 360
+j normalizeHPos
+
+hPosSub:
+sub hPos hPos 360
+j normalizeHPos
+
+setVertical:
 move vPos vert                  # Set vertical to current sun position
 j adjustLoop                    # Jump to apply settings
-
 
 # ============================================
 # BATCH ADJUSTMENT LOOP
@@ -102,5 +150,6 @@ sb currPanelType Vertical vPos    # Set vertical angle for all panels of this ty
 bgt sp 0 adjustLoop             # Continue if more panel types on stack
 
 # Wait for next tick and restart
+yield
 yield
 j main 
