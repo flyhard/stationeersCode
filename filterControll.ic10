@@ -1,0 +1,26 @@
+# Filter management
+
+alias tank d0
+alias warnLight d1
+
+define maxPressure 35000
+alias tankPressure r0
+alias notAtMaxPress r1
+alias slot0 r2
+alias slot1 r3
+alias minQ r4
+alias lightOn r5
+loop:
+yield
+
+l tankPressure tank Pressure
+slt notAtMaxPress tankPressure maxPressure
+s db Mode notAtMaxPress
+
+ls slot0 db 0 Quantity
+ls slot1 db 1 Quantity
+min minQ slot0 slot1
+seq lightOn minQ 0
+s warnLight On lightOn
+
+j loop
