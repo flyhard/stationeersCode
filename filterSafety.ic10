@@ -1,0 +1,16 @@
+alias filter db
+
+define maxPressure 40000  # Maximum pressure in kpa
+loop:
+	l r1 filter PressureOutput
+	l r2 filter PressureOutput2
+	bge r1 maxPressure turnOff
+	bge r2 maxPressure turnOff
+	s filter Mode 1
+	yield
+j loop
+
+turnOff:
+s filter Mode 0
+yield
+j loop
