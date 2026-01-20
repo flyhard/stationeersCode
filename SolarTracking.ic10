@@ -19,8 +19,6 @@ alias DaySensor d0
 define solarPowerPort 0         # Direction where solar panel power port points
 define daySensorPort 180        # Direction where daylight sensor points
 
-define sensor HASH("StructureDaylightSensor")
-
 ### Don't modify below here ###
 
 # Stack setup - push all solar panel types to process
