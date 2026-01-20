@@ -1,27 +1,8 @@
-# ============================================
-# SOLAR TRACKING SCRIPT
-# ============================================
-# This script automatically tracks the sun during the day
-# and resets panels to morning position at night.
-#
-# CONFIGURATION:
-# - solarPowerPort: Direction where power port of solar panels points (0-360°)
-#   Note: Panel facing direction is 90° clockwise from power port
-# - daySensorPort: Always set to 180 (sensor power port is at 180°/-180°)
-#
-# IMPORTANT: Daylight sensor returns horizontal values in range -180 to 180
-# The script calculates the correct offset for aligning solar panels with the sun.
-# ============================================
-
+# Solar Tracking - config: solarPowerPort & daySensorPort
 alias DaySensor d0
+define solarPowerPort 0
+define daySensorPort 180
 
-# Configuration: Set the port directions (in degrees)
-define solarPowerPort 0         # Direction where solar panel power port points
-define daySensorPort 180        # Direction where daylight sensor points
-
-### Don't modify below here ###
-
-# Stack setup - push all solar panel types to process
 alias stackSize r10
 move sp 0
 push HASH("StructureSolarPanel")
@@ -30,124 +11,77 @@ push HASH("StructureSolarPanelReinforced")
 push HASH("StructureSolarPanelDualReinforced")
 move stackSize sp
 
-# Register aliases for sun position tracking
-alias horiz r0                  # Current horizontal angle from sensor
-alias morningHoriz r3           # Captured sunrise horizontal angle (for night reset)
-move morningHoriz 0             # Initialize sunrise angle storage
-alias vert r1                   # Current vertical angle from sensor
-
-# Working variables
-alias stackPos r2               # Stack position (unused but reserved)
-alias isDay r4                  # Flag: 1=daylight detected, 0=night
-alias mode r5                   # Operating mode: 1=night (sun below horizon), 0=day
-alias currPanelType r7          # Current panel type hash from stack
-alias hPos r8                   # Target horizontal position for panels
-alias vPos r9                   # Target vertical position for panels
-alias prevDay r11               # Previous isDay value to detect sunrise
-
-# Calculate the angular correction needed between sensor and panel orientation
-# Formula: correction = (sensorPowerPort - panelFacing )
-#         = daySensorPort - (solarPowerPort + 90)
+alias horiz r0
+alias morningHoriz r3
+move morningHoriz 0
+alias vert r1
+alias isDay r4
+alias mode r5
+alias currPanelType r7
+alias hPos r8
+alias vPos r9
+alias prevDay r11
 alias correction r6
-add correction solarPowerPort 90        # Convert power port to panel facing direction
-sub correction daySensorPort correction   # Subtract sensor power port reference (180°) 
+add correction solarPowerPort 90
+sub correction daySensorPort correction
 
-
-# ============================================
-# MAIN LOOP
-# ============================================
-move prevDay 0                  # Initialize sunrise detection state
+move prevDay 0
 main:
-# Read current sun position from daylight sensor
-l horiz DaySensor Horizontal 
-l vert DaySensor Vertical 
-
-# Determine mode: mode=1 when sun is below horizon (vertical < 90°)
-slt mode vert 90
-
-# Derive isDay flag (1 when sun is above or on horizon)
-move isDay 1
-sub isDay isDay mode             # isDay = 1 - mode
-
-# Detect sunrise: capture first daytime horizontal angle after night
-beq prevDay 0 checkSunrise
-j afterSunrise
-
-checkSunrise:
-beq isDay 1 captureSunrise
-j afterSunrise
-
-captureSunrise:
-add morningHoriz horiz correction   # Store corrected morning angle
-
-# Normalize morningHoriz to 0-360 range
-normalizeMorning:
-blt morningHoriz 0 morningAdd
-bge morningHoriz 360 morningSub
-j afterSunrise
-
-morningAdd:
-add morningHoriz morningHoriz 360
-j normalizeMorning
-
-morningSub:
-sub morningHoriz morningHoriz 360
-j normalizeMorning
-
-afterSunrise:
-move prevDay isDay
-
-# ============================================
-# DAY MODE - Active sun tracking
-# ============================================
-beq isDay 1 adjustPanel         # Track sun when daylight
-
-# ============================================
-# NIGHT MODE - Reset to captured morning position
-# ============================================
-move sp stackSize               # Reset stack pointer to beginning
-move hPos morningHoriz          # Reset to stored sunrise horizontal angle
-move vPos 90                    # Park vertical at horizon
-j adjustLoop                    # Apply settings and sleep
-
-
-# ============================================
-# DAY MODE - Active sun tracking
-# ============================================
-adjustPanel:
-move sp stackSize               # Reset stack pointer to beginning
-add hPos horiz correction       # Calculate panel horizontal: sensor reading + correction
-
-# Normalize hPos to 0-360 range
-normalizeHPos:
-blt hPos 0 hPosAdd
-bge hPos 360 hPosSub
-j setVertical
-
-hPosAdd:
-add hPos hPos 360
-j normalizeHPos
-
-hPosSub:
-sub hPos hPos 360
-j normalizeHPos
-
-setVertical:
-move vPos vert                  # Set vertical to current sun position
-j adjustLoop                    # Jump to apply settings
-
-# ============================================
-# BATCH ADJUSTMENT LOOP
-# ============================================
-# Process all panel types from the stack and set their orientation
-adjustLoop:
-pop currPanelType               # Get next panel type hash from stack
-sb currPanelType Horizontal hPos  # Set horizontal angle for all panels of this type
-sb currPanelType Vertical vPos    # Set vertical angle for all panels of this type
-
-bgt sp 0 adjustLoop             # Continue if more panel types on stack
-
-# Wait for next tick and restart
-yield
-yield
-j main 
+	l horiz DaySensor Horizontal
+	l vert DaySensor Vertical
+	slt mode vert 90
+	move isDay 1
+	sub isDay isDay mode
+	beq prevDay 0 checkSunrise
+	j afterSunrise
+	checkSunrise:
+	beq isDay 1 captureSunrise
+	j afterSunrise
+	captureSunrise:
+	add morningHoriz horiz correction
+	normalizeMorning:
+		blt morningHoriz 0 morningAdd
+		bge morningHoriz 360 morningSub
+		j afterSunrise
+		morningAdd:
+		add morningHoriz morningHoriz 360
+	j normalizeMorning
+	morningSub:
+	sub morningHoriz morningHoriz 360
+	j normalizeMorning
+	afterSunrise:
+	move prevDay isDay
+	beq isDay 1 adjustPanel
+	move sp stackSize
+	move hPos morningHoriz
+	move vPos 15
+	j adjustLoop
+	
+	adjustPanel:
+	move sp stackSize
+	add hPos horiz correction
+	
+	normalizeHPos:
+		blt hPos 0 hPosAdd
+		bge hPos 360 hPosSub
+		j setVertical
+		
+		hPosAdd:
+		add hPos hPos 360
+	j normalizeHPos
+	hPosSub:
+	sub hPos hPos 360
+	j normalizeHPos
+	
+	setVertical:
+	sub vert 90 vert
+	move vPos vert
+	j adjustLoop
+	adjustLoop:
+	pop currPanelType
+	sb currPanelType Horizontal hPos
+	sb currPanelType Vertical vPos
+	bgt sp 0 adjustLoop
+	yield
+	yield
+j main
