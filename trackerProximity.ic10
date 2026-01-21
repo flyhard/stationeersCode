@@ -2,8 +2,9 @@ define prox HASH("StructureProximitySensor")
 define beacon HASH("StructureBeacon")
 
 alias presens r0 
+alias ProxRefId r1 
 
-s prox Setting 30
+sb prox Setting 30
 
 main:
 lb presens prox Activate Maximum
@@ -11,4 +12,5 @@ seqz presens presens
 
 sb beacon On presens 
 
-sleep 30
+sleep 10
+j main 
