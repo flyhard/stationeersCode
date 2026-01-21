@@ -6,48 +6,58 @@ The Solar Tracking (SolarTracking.ic10) script automatically adjusts solar panel
 ## Configuration
 
 ### Required Ports
-- **solarPowerPort** (default: 0) - Port number of the day/night sensor that provides sun position data
+- **solarDataPort** (default: 180) - Direction the solar panel data port is facing (0-360°)
 - **daySensorPort** (default: 180) - Sensor facing direction (0-360°) used as reference for angle calculations
 
-### Day/Night Sensor (Daylight Sensor 0)
-- **Position**: Opposite to power port (180° offset)
-- **Horizontal Angle Range**: -180° to 180° (clockwise), where:
-  - 0° = straight ahead
+### Day/Night Sensor (StructureDaylightSensor)
+- **Position**: Data port opposite to power port (180° offset)
+- **Horizontal Output**: -180° to 180° (clockwise reading from sensor), where:
+  - 0° = straight ahead from sensor
   - 90° = directly right
   - -90° = directly left
   - ±180° = directly behind
-- **Vertical Angle Range**: 0° to 180°, where:
+- **Vertical Output**: 0° to 180° (sensor reading), where:
   - 0° = toward horizon level
-  - 90° = straight up
-  - 180° = straight down
+  - 90° = straight up (zenith)
+  - 180° = straight down (nadir)
 
 ### Supported Solar Panel Types
-The script works with four panel types via hash matching:
-- `StructureSolarPanel` - Basic solar panel
-- `StructureSolarPanelDual` - Dual solar panel
-- `StructureSolarPanelReinforced` - Reinforced solar panel
-- `StructureSolarPanelDualReinforced` - Dual reinforced solar panel
+The script works with four built panel structures via hash matching:
+- `StructureSolarPanel` - Solar Panel (combined power/data ports)
+- `StructureSolarPanelDual` - Solar Panel (Dual) (opposite side split ports)
+- `StructureSolarPanelReinforced` - Solar Panel (Heavy) (storm-resistant, combined ports)
+- `StructureSolarPanelDualReinforced` - Solar Panel (Heavy Dual) (storm-resistant, split ports)
+
+Note: Built from Kit (Solar Panel) or Kit (Solar Panel Heavy). Only structures with logic capability are supported.
 
 ## How the Math Works
 
 ### Coordinate System
-The script uses a 2D directional system where angles represent compass directions:
-- **Horizontal (-180° to 180°)**: Pan angle; both horizontal and vertical angles wrap around (-90° = 270°)
-- **Vertical (0-180°)**: Elevation angle; 0° = toward horizon, 90° = straight up, 180° = straight down
+
+**Daylight Sensor readings**:
+- **Horizontal**: -180° to 180° (sensor perspective, sign indicates direction)
+- **Vertical**: 0° to 180° (0° = horizon, 90° = zenith, 180° = nadir)
+
+**Solar Panel commands**:
+- **Horizontal**: 0° to 360° (wraps around; -90° = 270°). Data port reference: 270°
+- **Vertical**: 15° to 165° (hardware limits). 15° = horizon, 90° = zenith, 165° = opposite horizon
+  - Values outside this range are clamped by the panel hardware
 
 ### Angle Correction Calculation
 ```
-correction = solarPowerPort + 90 - daySensorPort
+correction = solarDataPort + 270 - daySensorPort
 ```
 
-**Purpose**: Normalizes the sensor readings to a common reference frame.
+**Purpose**: Transforms sensor readings from the sensor's reference frame to the solar panel's reference frame.
 
 **Explanation**:
-- Solar panel's power port is +90° offset from its 0° reference point
-- The day sensor is mounted at a specific direction (`daySensorPort`)
-- Adding 90° accounts for this power port offset
-- Subtracting `daySensorPort` rotates the coordinate system so the sensor's orientation becomes the reference
-- This ensures that raw sensor angles map correctly to actual panel positions
+- Solar panels use the **data port** as a reference point at 270° (per wiki)
+- The sensor has its own directional reference (`daySensorPort`)
+- We need to account for the difference between where the sensor is pointing and where the panel data port is pointing
+- Formula breakdown:
+  - `solarDataPort + 270`: Converts from panel data port reference (270°) to panel's 0° reference
+  - `- daySensorPort`: Rotates coordinate system to align with sensor orientation
+- This correction is applied to all sensor readings before commanding the panels
 
 ### Sunrise Detection
 The script tracks when the sun rises to capture the morning horizontal angle:
@@ -65,10 +75,14 @@ When the sun is down (`isDay = 0`):
 
 ### Daytime Panel Positioning
 When the sun is up (`isDay = 1`):
-- **Horizontal**: `hPos = Horizontal - correction` (sun's current compass direction)
-- **Vertical**: `vPos = 90 - Vertical` (transforms sensor elevation to panel angle)
-  - When Vertical=0° (sun toward horizon): vPos=90° (panel faces straight up)
-  - When Vertical=90° (sun straight up): vPos=0° (panel faces toward horizon)
+- **Horizontal**: `hPos = Horizontal - correction` (transforms sensor angle to panel coordinate frame)
+- **Vertical**: `vPos = 90 - Vertical` (inverts sensor elevation to panel angle)
+  - When sensor Vertical=0° (sun at horizon): vPos=90°, but clamped to 15° by hardware
+  - When sensor Vertical=90° (sun at zenith): vPos=0°, but actually stays at 15° (hardware minimum)
+  - When sensor Vertical=15° (sun slightly up): vPos=75° (panel tilts toward sun)
+  - When sensor Vertical=75° (sun high): vPos=15° (panel near horizon orientation)
+  
+Note: The panel hardware automatically clamps vertical commands to the 15-165° range
 
 ### Panel Commands
 For each solar panel in the stack:
@@ -79,10 +93,14 @@ sb currPanelType Vertical vPos
 
 The `sb` command (Set Batch) updates all devices of the specified type with the same position values.
 
-### Solar Panel Constraints
-- **Angle wrapping**: Both horizontal and vertical angles wrap around (e.g., -90° = 270°)
-- **Vertical minimum**: 15° is the practical minimum; setting values below 15° has no effect
-- **Sunset behavior**: The sun goes down at the horizon (Vertical=0°), not at 15°. The 15° minimum is just a safe parking angle for nighttime.
+### Solar Panel Constraints (Per Wiki)
+- **Horizontal wrapping**: Horizontal angles wrap around (e.g., -90° = 270°, 361° = 1°)
+- **Vertical range**: Hardware enforces 15° to 165° range
+  - 15° = panel faces horizon
+  - 90° = panel faces straight up (zenith)
+  - 165° = panel faces opposite horizon
+- **Vertical clamping**: Values below 15° are clamped to 15°, values above 165° are clamped to 165°
+- **Physical limitation**: "At extreme attitude settings (0/100) the solar panel still faces 15 degrees above the horizon. Thus the total arc of vertical rotation is only 150 degrees" (wiki quote)
 
 ## Algorithm Flow
 
@@ -135,17 +153,23 @@ The `sb` command (Set Batch) updates all devices of the specified type with the 
 
 ## Example Scenario
 
-**Time: Morning, sun rising in the east**
-- Sensor reads: Horizontal=85°, Vertical=92° (sun below horizon)
+**Time: Night**
+- Sensor reads: Horizontal=85°, Vertical=120° (sun below horizon, Vertical ≥ 90°)
 - `isDay=0` → panels point to safe position (morningHoriz, 15°)
+- Panels rest at horizon level facing east
 
-**Time: Later morning, sun visible**
-- Sensor reads: Horizontal=95°, Vertical=75° (sun above horizon)
-- `isDay=1` → sunrise detected, `morningHoriz` captured
-- Panels adjust to: Horizontal=95°-correction, Vertical=90°-75°=15°
-- Panels face towards the sun
+**Time: Sunrise**
+- Sensor reads: Horizontal=95°, Vertical=85° (sun just above horizon, Vertical < 90°)
+- `isDay=1` → sunrise detected, `morningHoriz = 95° - correction` captured
+- Panels adjust to: Horizontal=95°-correction, Vertical=90°-85°=5° → clamped to 15°
+- Panels track the rising sun
 
-**Time: Noon, sun high**
-- Sensor reads: Horizontal=180°, Vertical=20° (high in sky)
-- Panels adjust to: Horizontal=180°-correction, Vertical=90°-20°=70°
-- Panels face up and south (following sun)
+**Time: Noon, sun at zenith**
+- Sensor reads: Horizontal=180°, Vertical=10° (sun high in sky)
+- Panels adjust to: Horizontal=180°-correction, Vertical=90°-10°=80°
+- Panels tilted up significantly to face the high sun
+
+**Time: Late afternoon**
+- Sensor reads: Horizontal=270°, Vertical=70°
+- Panels adjust to: Horizontal=270°-correction, Vertical=90°-70°=20°
+- Panels near horizon level, tracking setting sun
