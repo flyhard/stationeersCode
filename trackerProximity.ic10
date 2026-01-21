@@ -1,0 +1,12 @@
+alias prox d0 
+alias beacon d1 
+alias presens r0 
+
+s prox Setting 30
+
+main:
+l presens prox Activate 
+
+s beacon On presens 
+
+sleep 30

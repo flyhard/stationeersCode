@@ -34,22 +34,22 @@ main:
 	move isDay mode
 	beq prevDay 0 checkSunrise
 	j afterSunrise
-	checkSunrise:
+checkSunrise:
 	beq isDay 1 captureSunrise
 	j afterSunrise
-	captureSunrise:
+captureSunrise:
 	add morningHoriz horiz correction
-	normalizeMorning:
+normalizeMorning:
 		blt morningHoriz 0 morningAdd
 		bge morningHoriz 360 morningSub
 		j afterSunrise
-		morningAdd:
+morningAdd:
 		add morningHoriz morningHoriz 360
 	j normalizeMorning
-	morningSub:
+morningSub:
 	sub morningHoriz morningHoriz 360
 	j normalizeMorning
-	afterSunrise:
+afterSunrise:
 	move prevDay isDay
 	beq isDay 1 adjustPanel
 	move sp stackSize
@@ -57,26 +57,26 @@ main:
 	move vPos 15
 	j adjustLoop
 	
-	adjustPanel:
+adjustPanel:
 	move sp stackSize
 	add hPos horiz correction
 	
-	normalizeHPos:
+normalizeHPos:
 		blt hPos 0 hPosAdd
 		bge hPos 360 hPosSub
 		j setVertical
 		
-		hPosAdd:
+hPosAdd:
 		add hPos hPos 360
 	j normalizeHPos
-	hPosSub:
+hPosSub:
 	sub hPos hPos 360
 	j normalizeHPos
 	
-	setVertical:
+setVertical:
 	sub vPos 90 vert
 	j adjustLoop
-	adjustLoop:
+adjustLoop:
 	pop currPanelType
 	sb currPanelType Horizontal hPos
 	sb currPanelType Vertical vPos
