@@ -1,6 +1,6 @@
 # Solar Tracking - config: solarPowerPort & daySensorPort
 alias DaySensor d0
-define solarPowerPort 0
+define solarDataPort 180
 define daySensorPort 180
 
 alias stackSize r10
@@ -17,16 +17,19 @@ move morningHoriz 0
 alias vert r1
 alias isDay r4
 alias mode r5
+alias correction r6
 alias currPanelType r7
 alias hPos r8
 alias vPos r9
 alias prevDay r11
-alias correction r6
-add correction solarPowerPort 90
+
+# calculate correction factor
+add correction solarDataPort 270
 sub correction daySensorPort correction
 s db Setting correction
 
 move prevDay 0
+
 main:
 	l horiz DaySensor Horizontal
 	l vert DaySensor Vertical
@@ -38,42 +41,18 @@ checkSunrise:
 	beq isDay 1 captureSunrise
 	j afterSunrise
 captureSunrise:
-	add morningHoriz horiz correction
-normalizeMorning:
-		blt morningHoriz 0 morningAdd
-		bge morningHoriz 360 morningSub
-		j afterSunrise
-morningAdd:
-		add morningHoriz morningHoriz 360
-	j normalizeMorning
-morningSub:
-	sub morningHoriz morningHoriz 360
-	j normalizeMorning
+	sub morningHoriz horiz correction
+    j afterSunrise
 afterSunrise:
 	move prevDay isDay
-	beq isDay 1 adjustPanel
 	move sp stackSize
+	beq isDay 1 adjustPanel
 	move hPos morningHoriz
 	move vPos 15
 	j adjustLoop
 	
 adjustPanel:
-	move sp stackSize
-	add hPos horiz correction
-	
-normalizeHPos:
-		blt hPos 0 hPosAdd
-		bge hPos 360 hPosSub
-		j setVertical
-		
-hPosAdd:
-		add hPos hPos 360
-	j normalizeHPos
-hPosSub:
-	sub hPos hPos 360
-	j normalizeHPos
-	
-setVertical:
+	sub hPos horiz correction
 	sub vPos 90 vert
 	j adjustLoop
 adjustLoop:

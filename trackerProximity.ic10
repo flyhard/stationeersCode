@@ -1,12 +1,13 @@
-alias prox d0 
-alias beacon d1 
+define prox HASH("StructureProximitySensor")
+define beacon HASH("StructureBeacon")
+
 alias presens r0 
 
 s prox Setting 30
 
 main:
-l presens prox Activate 
+lb presens prox Activate Maximum
 
-s beacon On presens 
+sb beacon On presens 
 
 sleep 30
