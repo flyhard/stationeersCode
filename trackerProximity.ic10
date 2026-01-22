@@ -2,7 +2,6 @@ define prox HASH("StructureProximitySensor")
 define beacon HASH("StructureBeacon")
 
 alias presens r0 
-alias ProxRefId r1 
 
 sb prox Setting 30
 
