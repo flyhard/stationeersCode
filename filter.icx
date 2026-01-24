@@ -1,0 +1,50 @@
+# Filter Control - CO2 atmospheric regulation system
+# Monitors CO2 ratio and controls a filter device to maintain target range
+
+use aliases
+use comments
+
+# Device aliases
+alias display d0
+alias sensor d1
+alias filterDevice db
+
+# Configuration constants
+use constants
+const TARGET_MIN = 30    # Minimum CO2 %
+const TARGET_MAX = 40    # Maximum CO2 %
+
+# Initialize display
+display.Mode = 0
+display.On = 1
+
+main:
+  readGas()
+  updateDisplay()
+
+  # Check if CO2 is below minimum
+  if co2_percent < TARGET_MIN
+    filterDevice.Mode = 1  # Turn on filter
+  else
+    # Check if CO2 is above maximum
+    if co2_percent > TARGET_MAX
+        filterDevice.Mode = 0  # Turn off filter
+    end
+  end
+  
+  yield
+j main
+
+function readGas()
+    # Read CO2 ratio (0.0-1.0) and scale to percentage
+    var ratio = sensor.RatioCarbonDioxide
+    var pressure = sensor.Pressure
+
+    # Calculate CO2 percentage: (ratio * pressure)
+    var co2_percent = ratio * pressure
+end
+
+function updateDisplay()
+    # Display the current CO2 percentage
+    display.Setting = co2_percent
+end

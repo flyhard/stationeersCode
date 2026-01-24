@@ -1,0 +1,17 @@
+# Environment configuration for filter.icx
+# Simulates CO2 sensor and filter device for offline testing
+
+[d0]
+PrefabHash = "StructureConsoleLED5"
+Mode = 0
+On = 1
+Setting = 0
+
+[d1]
+PrefabHash = "StructureGasSensor"
+RatioCarbonDioxide = 0.25
+Pressure = 100
+
+[db]
+PrefabHash = "StructureGasFilter"
+Mode = 0

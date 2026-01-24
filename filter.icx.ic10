@@ -1,0 +1,42 @@
+# Device aliases
+alias display d0
+alias sensor d1
+alias filterDevice db
+# Configuration constants
+define TARGET_MIN 30 #Minimum CO2 %
+define TARGET_MAX 40 #Maximum CO2 %
+# Initialize display
+s display Mode 0
+s display On 1
+main:
+jal readGas
+jal updateDisplay
+# Check if CO2 is below minimum
+slt r15 co2_percent TARGET_MIN
+beqz r15 if0else
+s filterDevice Mode 1   # Turn on filter
+j if0exit
+if0else:
+# Check if CO2 is above maximum
+sgt r14 co2_percent TARGET_MAX
+beqz r14 if1exit
+s filterDevice Mode 0   # Turn off filter
+if1exit:
+if0exit:
+yield
+j main
+jr 17
+readGas:
+alias ratio r0
+alias pressure r1
+alias co2_percent r2
+# Read CO2 ratio (0.0-1.0) and scale to percentage
+l ratio sensor RatioCarbonDioxide
+l pressure sensor Pressure
+# Calculate CO2 percentage: (ratio * pressure)
+mul co2_percent ratio pressure
+j ra
+updateDisplay:
+# Display the current CO2 percentage
+s display Setting co2_percent
+j ra
